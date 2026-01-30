@@ -7,8 +7,9 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
     environment:
-      MYSQL_ROOT_PASSWORD: 123
+      MYSQL_ROOT_PASSWORD: "123"
     volumes:
       - mariadb-data:/var/lib/mysql
     networks:
@@ -28,11 +29,18 @@ services:
       REDIS_CACHE: redis:6379
       REDIS_QUEUE: redis:6379
       REDIS_SOCKETIO: redis:6379
+      FRAPPE_SITE_NAME_HEADER: $$host
     working_dir: /home/frappe
     volumes:
       - .:/workspace
+    expose:
+      - "8000"
+      - "9000"
     networks:
       - dokploy-network
+    depends_on:
+      - mariadb
+      - redis
 
 volumes:
   mariadb-data:
