@@ -9,7 +9,7 @@ services:
       - --skip-character-set-client-handshake
       - --skip-innodb-read-only-compressed
     environment:
-      MYSQL_ROOT_PASSWORD: "123"
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123}
     volumes:
       - mariadb-data:/var/lib/mysql
     networks:
@@ -25,6 +25,13 @@ services:
     command: bash /workspace/init.sh
     environment:
       SHELL: /bin/bash
+
+      # used by init.sh (after you update it to read these)
+      SITE_NAME: ${SITE_NAME:-hrms.localhost}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+
+      # runtime wiring
       DB_HOST: mariadb
       REDIS_CACHE: redis:6379
       REDIS_QUEUE: redis:6379
@@ -33,6 +40,7 @@ services:
     working_dir: /home/frappe
     volumes:
       - .:/workspace
+      - bench-data:/home/frappe/frappe-bench
     expose:
       - "8000"
       - "9000"
@@ -44,6 +52,7 @@ services:
 
 volumes:
   mariadb-data:
+  bench-data:
 
 networks:
   dokploy-network:
