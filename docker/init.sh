@@ -7,20 +7,25 @@ BENCH_DIR="${VOLUME_DIR}/bench"
 echo "init starting. bench_dir=${BENCH_DIR}"
 pwd
 
-# if bench already exists, start it
+# phase 1: if we're root, fix permissions then re-run as frappe
+if [ "$(id -u)" -eq 0 ]; then
+  echo "running as root, fixing volume ownership..."
+  mkdir -p "${VOLUME_DIR}"
+  chown -R frappe:frappe "${VOLUME_DIR}" || true
+
+  echo "switching to frappe user..."
+  exec su -s /bin/bash frappe -c "SITE_NAME='${SITE_NAME:-}' MYSQL_ROOT_PASSWORD='${MYSQL_ROOT_PASSWORD:-}' ADMIN_PASSWORD='${ADMIN_PASSWORD:-}' bash /workspace/init.sh"
+fi
+
+# phase 2: now we're the frappe user, bench imports work
 if [ -f "${BENCH_DIR}/Procfile" ] && [ -d "${BENCH_DIR}/sites" ]; then
-  echo "bench already exists, skipping init"
+  echo "bench already exists, starting"
   cd "${BENCH_DIR}"
   exec bench start
 fi
 
 echo "creating new bench..."
 
-# ensure the bench volume is writable (dokploy volumes often come in root-owned)
-mkdir -p "${VOLUME_DIR}"
-chown -R frappe:frappe "${VOLUME_DIR}" || true
-
-# ensure clean bench dir (safe, not a mountpoint)
 mkdir -p "${BENCH_DIR}"
 find "${BENCH_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true
 
