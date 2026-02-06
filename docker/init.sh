@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BENCH_DIR="/home/frappe/frappe-bench"
+VOLUME_DIR="/home/frappe/frappe-bench"
+BENCH_DIR="${VOLUME_DIR}/bench"
 
 echo "init starting. bench_dir=${BENCH_DIR}"
 pwd
 
-# valid bench marker is Procfile + sites folder
+# if bench already exists, start it
 if [ -f "${BENCH_DIR}/Procfile" ] && [ -d "${BENCH_DIR}/sites" ]; then
-  echo "bench already exists, starting"
+  echo "bench already exists, skipping init"
   cd "${BENCH_DIR}"
   exec bench start
 fi
 
-echo "bench missing or incomplete. wiping bench contents (not the mount) ..."
+echo "creating new bench..."
 
-# wipe contents safely (works with dotfiles, avoids 'device busy' mount deletion)
+# ensure clean bench dir (safe, not a mountpoint)
 mkdir -p "${BENCH_DIR}"
-find "${BENCH_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+find "${BENCH_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true
 
-# do NOT rely on NODE_VERSION_DEVELOP (often unset in frappe/bench:latest)
+# don't assume NODE_VERSION_DEVELOP exists
 if [ -n "${NVM_DIR:-}" ] && [ -n "${NODE_VERSION_DEVELOP:-}" ]; then
   export PATH="${NVM_DIR}/versions/node/v${NODE_VERSION_DEVELOP}/bin/:${PATH}"
 fi
@@ -27,7 +28,6 @@ fi
 bench init --skip-redis-config-generation "${BENCH_DIR}"
 cd "${BENCH_DIR}"
 
-# Use containers instead of localhost
 bench set-mariadb-host mariadb
 bench set-redis-cache-host redis://redis:6379
 bench set-redis-queue-host redis://redis:6379
@@ -36,7 +36,6 @@ bench set-redis-socketio-host redis://redis:6379
 sed -i '/redis/d' ./Procfile || true
 sed -i '/watch/d' ./Procfile || true
 
-# hrms only (remove erpnext)
 bench get-app hrms
 
 SITE_NAME="${SITE_NAME:-hrms.localhost}"
