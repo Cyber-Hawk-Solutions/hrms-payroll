@@ -13,33 +13,21 @@ services:
     volumes:
       - mariadb-data:/var/lib/mysql
     networks:
-      - dokploy-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD:-123}"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
+      - internal
 
   redis:
     image: redis:alpine
     networks:
-      - dokploy-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
+      - internal
 
   frappe:
     image: frappe/bench:latest
     command: bash /workspace/init.sh
     environment:
       SHELL: /bin/bash
-
       SITE_NAME: ${SITE_NAME:-hrms.localhost}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
-
       DB_HOST: mariadb
       REDIS_CACHE: redis:6379
       REDIS_QUEUE: redis:6379
@@ -53,17 +41,18 @@ services:
       - "8000"
       - "9000"
     networks:
+      - internal
       - dokploy-network
     depends_on:
-      mariadb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - mariadb
+      - redis
 
 volumes:
   mariadb-data:
   bench-data:
 
 networks:
+  internal:
+    driver: bridge
   dokploy-network:
     external: true
