@@ -7,7 +7,7 @@ BENCH_DIR="${VOLUME_DIR}/bench"
 echo "init starting. bench_dir=${BENCH_DIR}"
 pwd
 
-# phase 1: if we're root, fix permissions then re-run as frappe
+# phase 1: run as root only to fix volume ownership, then re-run as frappe
 if [ "$(id -u)" -eq 0 ]; then
   echo "running as root, fixing volume ownership..."
   mkdir -p "${VOLUME_DIR}"
@@ -17,7 +17,9 @@ if [ "$(id -u)" -eq 0 ]; then
   exec su -s /bin/bash frappe -c "SITE_NAME='${SITE_NAME:-}' MYSQL_ROOT_PASSWORD='${MYSQL_ROOT_PASSWORD:-}' ADMIN_PASSWORD='${ADMIN_PASSWORD:-}' bash /workspace/init.sh"
 fi
 
-# phase 2: now we're the frappe user, bench imports work
+# phase 2: frappe user
+
+# if bench already exists, start
 if [ -f "${BENCH_DIR}/Procfile" ] && [ -d "${BENCH_DIR}/sites" ]; then
   echo "bench already exists, starting"
   cd "${BENCH_DIR}"
@@ -26,15 +28,23 @@ fi
 
 echo "creating new bench..."
 
-mkdir -p "${BENCH_DIR}"
-find "${BENCH_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true
+# bench init requires the target dir to NOT exist
+rm -rf "${BENCH_DIR}"
+mkdir -p "${VOLUME_DIR}"
 
-# don't assume NODE_VERSION_DEVELOP exists
+# optional node path (don't crash if vars missing)
 if [ -n "${NVM_DIR:-}" ] && [ -n "${NODE_VERSION_DEVELOP:-}" ]; then
   export PATH="${NVM_DIR}/versions/node/v${NODE_VERSION_DEVELOP}/bin/:${PATH}"
 fi
 
 bench init --skip-redis-config-generation "${BENCH_DIR}"
+
+# sanity check: if bench init didn't create sites/, stop now
+if [ ! -d "${BENCH_DIR}/sites" ]; then
+  echo "bench init did not create sites/; refusing to continue"
+  exit 1
+fi
+
 cd "${BENCH_DIR}"
 
 bench set-mariadb-host mariadb
