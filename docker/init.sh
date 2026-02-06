@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 BENCH_DIR="/home/frappe/frappe-bench"
 
-# start if bench already initialized
-if [ -f "${BENCH_DIR}/Procfile" ]; then
-  echo "bench already exists, skipping init"
+echo "init starting. bench_dir=${BENCH_DIR}"
+pwd
+
+# valid bench marker is Procfile + sites folder
+if [ -f "${BENCH_DIR}/Procfile" ] && [ -d "${BENCH_DIR}/sites" ]; then
+  echo "bench already exists, starting"
   cd "${BENCH_DIR}"
   exec bench start
 fi
 
-echo "creating new bench..."
+echo "bench missing or incomplete. wiping bench contents (not the mount) ..."
 
-# if the bench dir exists (volume mount) but is empty/broken, clear contents (don’t delete mount)
-if [ -d "${BENCH_DIR}" ]; then
-  rm -rf "${BENCH_DIR:?}/"* "${BENCH_DIR}"/.[!.]* "${BENCH_DIR}"/..?* 2>/dev/null || true
-fi
+# wipe contents safely (works with dotfiles, avoids 'device busy' mount deletion)
+mkdir -p "${BENCH_DIR}"
+find "${BENCH_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 
-# don't rely on NODE_VERSION_DEVELOP (it isn't set in this image)
-# if you really want nvm, make it optional:
+# do NOT rely on NODE_VERSION_DEVELOP (often unset in frappe/bench:latest)
 if [ -n "${NVM_DIR:-}" ] && [ -n "${NODE_VERSION_DEVELOP:-}" ]; then
   export PATH="${NVM_DIR}/versions/node/v${NODE_VERSION_DEVELOP}/bin/:${PATH}"
 fi
@@ -26,6 +27,7 @@ fi
 bench init --skip-redis-config-generation "${BENCH_DIR}"
 cd "${BENCH_DIR}"
 
+# Use containers instead of localhost
 bench set-mariadb-host mariadb
 bench set-redis-cache-host redis://redis:6379
 bench set-redis-queue-host redis://redis:6379
@@ -34,9 +36,7 @@ bench set-redis-socketio-host redis://redis:6379
 sed -i '/redis/d' ./Procfile || true
 sed -i '/watch/d' ./Procfile || true
 
-# if you truly want no ERPNext, remove this line:
-# bench get-app erpnext
-
+# hrms only (remove erpnext)
 bench get-app hrms
 
 SITE_NAME="${SITE_NAME:-hrms.localhost}"
