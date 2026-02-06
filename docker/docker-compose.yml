@@ -22,6 +22,7 @@ services:
 
   frappe:
     image: frappe/bench:latest
+    user: "0:0"
     command: bash /workspace/init.sh
     environment:
       SHELL: /bin/bash
