@@ -16,6 +16,10 @@ fi
 
 echo "creating new bench..."
 
+# ensure the bench volume is writable (dokploy volumes often come in root-owned)
+mkdir -p "${VOLUME_DIR}"
+chown -R frappe:frappe "${VOLUME_DIR}" || true
+
 # ensure clean bench dir (safe, not a mountpoint)
 mkdir -p "${BENCH_DIR}"
 find "${BENCH_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true
